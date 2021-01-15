@@ -14,7 +14,7 @@
 #define GREEN(i)    sin(F*(float)(i)+2*PI/3) * 127 + 128
 #define BLUE(i)     sin(F*(float)(i)+4*PI/3) * 127 + 128
 
-void rainbow(const char *message){
+void rainbows(const char *message){
     int len = (int) strlen(message);
     for(int i = 0; i < len; i++){
         int r = RED(i), g = GREEN(i), b = BLUE(i);
@@ -22,7 +22,7 @@ void rainbow(const char *message){
     }
 }
 
-void warning(const char *message){
+void warnings(const char *message){
     int len = (int) strlen(message);
     for(int i = 0; i < len; i++){
         printf("\033[38;2;%d;%d;%dm%c\033[0m", 255, 215, 0, message[i]);
@@ -30,7 +30,7 @@ void warning(const char *message){
 }
 
 //243,132,130
-void error(const char *message){
+void errors(const char *message){
     int len = (int) strlen(message);
     for(int i = 0; i < len; i++){
         printf("\033[38;2;%d;%d;%dm%c\033[0m", 243, 132, 130, message[i]);
@@ -38,7 +38,7 @@ void error(const char *message){
 }
 
 void test(){
-    rainbow("hello world, this is the print of rainbow!");
-    warning("hello world, this is the warning print");
-    error("hello world, this is the error print");
+    rainbows("hello world, this is the print of rainbow!");
+    warnings("hello world, this is the warning print");
+    errors("hello world, this is the error print");
 }
