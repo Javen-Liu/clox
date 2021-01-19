@@ -4,10 +4,14 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <string.h>
+
 #include "vm.h"
 #include "common.h"
 #include "compiler.h"
 #include "debug.h"
+#include "memory.h"
+#include "object.h"
 
 VM vm;
 
@@ -31,10 +35,11 @@ static void runtimeError(const char *format, ...) {
 
 void initVM(){
     resetStack();
+    vm.objects = NULL;
 }
 
 void freeVM(){
-
+    freeObjects();
 }
 
 void push(Value value){
@@ -53,6 +58,20 @@ static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
+static void concatenate() {
+    ObjString *a = AS_STRING(pop());
+    ObjString *b = AS_STRING(pop());
+
+    int newLength = a->length + b->length;
+    char *chars = ALLOCATE(char, newLength + 1);
+    memcpy(chars, a->chars, a->length);
+    memcpy(chars + a->length, b->chars, b->length);
+    chars[newLength] = '\0';
+
+    ObjString *result = takeString(chars, newLength);
+    push(OBJ_VALUE(result));
+}
+
 static InterpretResult run(){
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
@@ -62,7 +81,7 @@ static InterpretResult run(){
         if(!IS_NUMBER(peek(0)) || !IS_NUMBER(peek(1))) { \
             runtimeError("Operands must be numbers.");   \
             return INTERPRET_RUNTIME_ERROR; \
-        }\
+        } \
         double b = AS_NUMBER(pop());   \
         double a = AS_NUMBER(pop());   \
         push(valueType(a op b));       \
@@ -105,7 +124,15 @@ static InterpretResult run(){
                 break;
             }
             case OP_ADD:{
-                BINARY_OP(NUMBER_VALUE, +);
+                if(IS_STRING(peek(0)) && IS_STRING(peek(1))) {
+                    concatenate();
+                } else if(IS_NUMBER(peek(0)) && IS_NUMBER(peek(1))) {
+                    double b = AS_NUMBER(pop());
+                    double a = AS_NUMBER(pop());
+                    push(NUMBER_VALUE(a + b));
+                } else {
+                    // todo 字符串与数字拼接
+                }
                 break;
             }
             case OP_SUBTRACT: {
