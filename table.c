@@ -139,23 +139,21 @@ ObjString *tableFindString(Table *table, const char *chars,
         return NULL;
     }
 
-    Entry *entries = table->entries;
-    int capacity = table->capacity;
-    uint32_t index = hash % capacity;
+    uint32_t index = hash % table->capacity;
 
     for(;;) {
-        Entry *entry = &entries[index];
+        Entry *entry = &table->entries[index];
 
         if(entry->key == NULL) {
             if(IS_NIL(entry->value)) {
                 return NULL;
             }
-        } else if(entry->key->length == strlen(chars) &&
+        } else if(entry->key->length == length &&
             entry->key->hash == hash &&
             memcmp(entry->key->chars, chars, length) == 0) {
             return entry->key;
         }
 
-        index = (index + 1) % capacity;
+        index = (index + 1) % table->capacity;
     }
 }
