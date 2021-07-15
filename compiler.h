@@ -6,6 +6,7 @@
 #define CLOX_COMPILER_H
 
 #include "chunk.h"
+#include "object.h"
 #include "vm.h"
 #include "scanner.h"
 
@@ -43,12 +44,20 @@ typedef struct {
     int depth;
 } Local;
 
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT,
+} FunctionType;
+
 typedef struct {
+    ObjFunction *function;
+    FunctionType type;
+
     Local locals[UINT8_COUNT];
     int localCount;
     int scopeDepth;
 } Compiler;
 
-bool compile(const char *source, Chunk *chunk);
+bool compile(const char *source);
 
 #endif //CLOX_COMPILER_H
