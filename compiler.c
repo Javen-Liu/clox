@@ -153,6 +153,45 @@ static uint8_t identifierConstant(Token *name) {
                                              name->length)));
 }
 
+static void beginLoop(int loopStart) {
+    Loop *currentLoop = &current->loops[current->loopCount++];
+    currentLoop->loopStart = loopStart;
+    currentLoop->loopEndsCount = 0;
+}
+
+static void continueLoop() {
+    if(current->loopCount == 0) {
+        errorAtCurrent("illegal use of 'continue', 'continue' should use in 'while' and 'for'");
+    }
+    Loop *currentLoop = &current->loops[current->loopCount - 1];
+
+    emitByte(OP_LOOP);
+    int offset = currentChunk()->count - currentLoop->loopStart + 2;
+    if(offset > UINT16_MAX) {
+        error("Loop body too large.");
+    }
+
+    emitByte((offset >> 8) & 0xff);
+    emitByte(offset & 0xff);
+}
+
+static void breakLoop(int breakJump) {
+    if(current->loopCount == 0) {
+        errorAtCurrent("illegal use of 'break', 'break' should use in 'while' and 'for'");
+    }
+
+    Loop *currentLoop = &current->loops[current->loopCount - 1];
+    currentLoop->loopEnds[currentLoop->loopEndsCount++] = breakJump;
+}
+
+static void endLoop() {
+    Loop *currentLoop = &current->loops[current->loopCount - 1];
+    for (int i = 0; i < currentLoop->loopEndsCount; i++) {
+        patchJump(currentLoop->loopEnds[i]);
+    }
+    current->loopCount--;
+}
+
 static bool identifiersEqual(Token *a, Token *b) {
     if(a->length != b->length) {
         return false;
@@ -342,6 +381,7 @@ static void forStatement() {
         int bodyJump = emitJump(OP_JUMP);
 
         int incrementStart = currentChunk()->count;
+        beginLoop(incrementStart);
         expression();
         emitByte(OP_POP);
         consume(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
@@ -360,6 +400,7 @@ static void forStatement() {
         emitByte(OP_POP);
     }
 
+    endLoop();
     endScope();
 }
 
@@ -390,6 +431,7 @@ static void printStatement() {
 
 static void whileStatement() {
     int loopStart = currentChunk()->count;
+    beginLoop(loopStart);
 
     consume(TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
     expression();
@@ -397,11 +439,65 @@ static void whileStatement() {
 
     int exitJump = emitJump(OP_JUMP_IF_FALSE);
     emitByte(OP_POP);
+
+    beginScope();
     statement();
     emitLoop(loopStart);
 
     patchJump(exitJump);
+    endLoop();
     emitByte(OP_POP);
+    endScope();
+}
+
+static void switchStatement() {
+    consume(TOKEN_LEFT_PAREN, "Expect '(' after 'switch'.");
+    expression();
+    consume(TOKEN_RIGHT_PAREN, "Expect ')' after 'switch'.");
+
+    consume(TOKEN_LEFT_BRACE, "Expect '{' after 'switch'.");
+    int nextCase = -1;
+    // exit for every case, that means lox only support 30 cases.
+    int exitJumps[30];
+    int exitJumpCount = 0;
+
+    while(match(TOKEN_CASE)) {
+        // compare the value which represent * in "switch(*)", with the
+        // value that generate by current case expression * in "case *:".
+        emitByte(OP_DUP);
+        expression();
+        emitByte(OP_EQUAL);
+
+        consume(TOKEN_COLON, "Expect ':' after 'case'.");
+        nextCase = emitJump(OP_JUMP_IF_FALSE);
+        emitByte(OP_POP);
+        statement();
+        exitJumps[exitJumpCount++] = emitJump(OP_JUMP);
+        patchJump(nextCase);
+        emitByte(OP_POP);
+    }
+
+    if(match(TOKEN_DEFAULT)) {
+        consume(TOKEN_COLON, "Expect ':' after 'default'.");
+        statement();
+    }
+
+    for (int i = 0; i < exitJumpCount; i++) {
+        patchJump(exitJumps[i]);
+    }
+    emitByte(OP_POP);
+    consume(TOKEN_RIGHT_BRACE, "Expect '}' after 'switch'.");
+}
+
+static void breakStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'break'.");
+    int breakJump = emitJump(OP_JUMP);
+    breakLoop(breakJump);
+}
+
+static void continueStatement() {
+    consume(TOKEN_SEMICOLON, "Expect ';' after 'continue'.");
+    continueLoop();
 }
 
 static void synchronize() {
@@ -459,6 +555,12 @@ static void statement() {
         beginScope();
         block();
         endScope();
+    } else if(match(TOKEN_SWITCH)) {
+        switchStatement();
+    } else if(match(TOKEN_BREAK)) {
+        breakStatement();
+    } else if(match(TOKEN_CONTINUE)) {
+        continueStatement();
     } else {
         expressionStatement();
     }
@@ -498,6 +600,7 @@ static void initCompiler(Compiler *compiler, FunctionType type) {
     compiler->function = NULL;
     compiler->type = type;
     compiler->localCount = 0;
+    compiler->loopCount = 0;
     compiler->scopeDepth = 0;
     compiler->function = newFunction();
     current = compiler;

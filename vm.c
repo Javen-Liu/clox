@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "vm.h"
 #include "common.h"
@@ -76,7 +77,103 @@ static void concatenate() {
     push(OBJ_VALUE(result));
 }
 
-static InterpretResult run(){
+static int lengthOfTheDigits(double number);
+static void copyNumber(char* string, int length, double number);
+
+static void concatenateWithNumber() {
+    Value a = pop();
+    Value b = pop();
+    if (IS_STRING(a)) {
+        ObjString *string = AS_STRING(a);
+        double number = AS_NUMBER(b);
+        int numberLength = lengthOfTheDigits(number);
+        int newLength = string->length + numberLength;
+
+        char *chars = ALLOCATE(char, newLength + 1);
+        memcpy(chars, string, string->length);
+        copyNumber(chars + string->length, numberLength, number);
+        chars[newLength] = '\0';
+        ObjString *result = takeString(chars, newLength);
+        push(OBJ_VALUE(result));
+    } else {
+        double number = AS_NUMBER(a);
+        ObjString *string = AS_STRING(b);
+        int numberLength = lengthOfTheDigits(number);
+        int newLength = numberLength + string->length;
+
+        char *chars = ALLOCATE(char, newLength + 1);
+        copyNumber(chars, numberLength, number);
+        memcpy(chars + numberLength, string, string->length);
+        chars[newLength] = '\0';
+        ObjString *result = takeString(chars, newLength);
+        push(OBJ_VALUE(result));
+    }
+}
+
+/** next several functions are turning *double* into character array **/
+
+// reverse the character between *start* and *end*, which is [start, end]
+static void reverse(char* string, int start, int end) {
+    while (start < end) {
+        char temp = *(string + start);
+        *(string + start) = *(string + end);
+        *(string + end) = temp;
+        start++;
+        end--;
+    }
+}
+
+static void copyNumber(char* string, int length, double number) {
+    char *numberString = ALLOCATE(char, length);
+    char *p;
+    p = numberString;
+    int integer = (int) number;
+    while (integer != 0) {
+        *p = '0' + (char) (integer % 10);
+        integer /= 10;
+        p++;
+    }
+    reverse(numberString, 0, p - numberString - 1);
+
+    if (length == p - numberString) {
+        return;
+    }
+    double decimal = number - integer;
+    while (p <= numberString + length) {
+        decimal *= 10;
+        *p = (int) decimal + '0';
+    }
+
+    int i;
+    for (i = 0; i < length; i++) {
+        *(string + i) = *(numberString + i);
+    }
+}
+
+static int lengthOfTheDigits(double number) {
+    int integer = (int) number;
+    double decimal = number - integer;
+
+    int digits = 0;
+    while (integer != 0) {
+        digits++;
+        integer /= 10;
+    }
+
+    if (decimal != 0) {
+        digits++;
+        while (decimal != (int) decimal) {
+            decimal *= 10;
+            digits++;
+        }
+    }
+
+    return digits;
+}
+
+/************************ end of the block ****************************/
+
+static InterpretResult run() {
 #define READ_BYTE() (*vm.ip++)
 #define READ_CONSTANT() (vm.chunk->constants.values[READ_BYTE()])
 #define READ_STRING() AS_STRING(READ_CONSTANT())
@@ -172,7 +269,7 @@ static InterpretResult run(){
                     double a = AS_NUMBER(pop());
                     push(NUMBER_VALUE(a + b));
                 } else {
-                    // todo 字符串与数字拼接
+                    concatenateWithNumber();
                 }
                 break;
             }
@@ -222,6 +319,11 @@ static InterpretResult run(){
                 vm.ip -= offset;
                 break;
             }
+            case OP_DUP:
+                push(peek(0));
+                break;
+            case OP_RETURN:
+                return INTERPRET_OK;
         }
     }
 
@@ -236,7 +338,8 @@ InterpretResult interpret(const char *source){
     Chunk chunk;
     initChunk(&chunk);
 
-    if(!compile(source, &chunk)) {
+    // if(!compile(source, &chunk)) {
+    if(!compile(source)) {
         freeChunk(&chunk);
         return INTERPRET_COMPILE_ERROR;
     }

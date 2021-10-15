@@ -44,6 +44,12 @@ typedef struct {
     int depth;
 } Local;
 
+typedef struct {
+    int loopStart;
+    int loopEnds[50];
+    int loopEndsCount;
+} Loop;
+
 typedef enum {
     TYPE_FUNCTION,
     TYPE_SCRIPT,
@@ -52,6 +58,11 @@ typedef enum {
 typedef struct {
     ObjFunction *function;
     FunctionType type;
+
+    // Loop array is for jumps of "while" and "for", and
+    // only support 50 nested loops.
+    Loop loops[50];
+    int loopCount;
 
     Local locals[UINT8_COUNT];
     int localCount;
