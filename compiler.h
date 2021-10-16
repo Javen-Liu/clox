@@ -56,6 +56,7 @@ typedef enum {
 } FunctionType;
 
 typedef struct {
+    struct Compiler *enclosing;
     ObjFunction *function;
     FunctionType type;
 
@@ -69,6 +70,6 @@ typedef struct {
     int scopeDepth;
 } Compiler;
 
-bool compile(const char *source);
+ObjFunction *compile(const char *source);
 
 #endif //CLOX_COMPILER_H
