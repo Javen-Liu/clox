@@ -39,10 +39,13 @@
 //
 // first();
 
-fun a() { b(); }
-fun b() { c(); }
-fun c() {
-  c("too", "many");
+fun fib(n) {
+    if (n < 2) return n;
+    return fib(n - 2) + fib(n - 1);
 }
 
-a();
+var start = clock();
+print fib(10);
+print 12 + "str";
+// print input();
+print clock() - start;

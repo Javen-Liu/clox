@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "vm.h"
 #include "common.h"
@@ -44,11 +45,42 @@ static void runtimeError(const char *format, ...) {
     resetStack();
 }
 
+static Value clockNative(int argCount, Value* args) {
+    if (argCount != 0) {
+        runtimeError("Error on 'clock' function, expect 0 argument, but given %d.", argCount);
+    }
+    return NUMBER_VALUE((double) clock() / CLOCKS_PER_SEC);
+}
+
+static Value inputNative(int argCount, Value* args) {
+    if (argCount != 0) {
+        runtimeError("Error on 'clock' function, expect 0 argument, but given %d.", argCount);
+    }
+    char *input = ALLOCATE(char, 5);
+    scanf("%s", input);
+    char *string = ALLOCATE(char, (int) strlen(input) + 1);
+    memcpy(string, input, (int) strlen(input));
+    *(string + (int) strlen(input)) = '\0';
+    ObjString *result = takeString(string, (int)strlen(string));
+    return OBJ_VALUE(result);
+}
+
+static void defineNative(const char *name, NativeFn function) {
+    push(OBJ_VALUE(copyString(name, (int)strlen(name))));
+    push(OBJ_VALUE(newNative(function)));
+    tableSet(&vm.globals, AS_STRING(vm.stack[0]), vm.stack[1]);
+    pop();
+    pop();
+}
+
 void initVM(){
     resetStack();
     vm.objects = NULL;
     initTable(&vm.globals);
     initTable(&vm.strings);
+
+    defineNative("clock", clockNative);
+    defineNative("input", inputNative);
 }
 
 void freeVM(){
@@ -93,6 +125,13 @@ static bool callValue(Value callee, int argCount) {
         switch (OBJ_TYPE(callee)) {
             case OBJ_FUNCTION:
                 return call(AS_FUNCTION(callee), argCount);
+            case OBJ_NATIVE: {
+                NativeFn native = AS_NATIVE(callee);
+                Value result = native(argCount, vm.stackTop - argCount);
+                vm.stackTop -= argCount + 1;
+                push(result);
+                return true;
+            }
             default:
                 break;
         }
@@ -132,7 +171,7 @@ static void concatenateWithNumber() {
         int newLength = string->length + numberLength;
 
         char *chars = ALLOCATE(char, newLength + 1);
-        memcpy(chars, string, string->length);
+        memcpy(chars, string->chars, string->length);
         copyNumber(chars + string->length, numberLength, number);
         chars[newLength] = '\0';
         ObjString *result = takeString(chars, newLength);
@@ -145,7 +184,7 @@ static void concatenateWithNumber() {
 
         char *chars = ALLOCATE(char, newLength + 1);
         copyNumber(chars, numberLength, number);
-        memcpy(chars + numberLength, string, string->length);
+        memcpy(chars + numberLength, string->chars, string->length);
         chars[newLength] = '\0';
         ObjString *result = takeString(chars, newLength);
         push(OBJ_VALUE(result));
@@ -177,19 +216,20 @@ static void copyNumber(char* string, int length, double number) {
     }
     reverse(numberString, 0, p - numberString - 1);
 
-    if (length == p - numberString) {
-        return;
-    }
-    double decimal = number - integer;
-    while (p <= numberString + length) {
-        decimal *= 10;
-        *p = (int) decimal + '0';
+    if (length != p - numberString) {
+        double decimal = number - integer;
+        while (p <= numberString + length) {
+            decimal *= 10;
+            *p = (int) decimal + '0';
+        }
+
+        int i;
+        for (i = 0; i < length; i++) {
+            *(string + i) = *(numberString + i);
+        }
     }
 
-    int i;
-    for (i = 0; i < length; i++) {
-        *(string + i) = *(numberString + i);
-    }
+    memcpy(string, numberString, length);
 }
 
 static int lengthOfTheDigits(double number) {
@@ -374,8 +414,19 @@ static InterpretResult run() {
                 frame = &vm.frames[vm.frameCount - 1];
                 break;
             }
-            case OP_RETURN:
-                return INTERPRET_OK;
+            case OP_RETURN: {
+                Value result = pop();
+                vm.frameCount--;
+                if (vm.frameCount == 0) {
+                    pop();
+                    return INTERPRET_OK;
+                }
+
+                vm.stackTop = frame->slots;
+                push(result);
+                frame = &vm.frames[vm.frameCount - 1];
+                break;
+            }
         }
     }
 

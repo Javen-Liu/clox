@@ -109,6 +109,7 @@ static void emitLoop(int loopStart) {
 }
 
 static void emitReturn() {
+    emitByte(OP_NIL);
     emitByte(OP_RETURN);
 }
 
@@ -486,6 +487,19 @@ static void printStatement() {
     emitByte(OP_PRINT);
 }
 
+static void returnStatement() {
+    if (current->type == TYPE_SCRIPT) {
+        error("Can't return from top-level code.");
+    }
+    if (match(TOKEN_SEMICOLON)) {
+        emitReturn();
+    } else {
+        expression();
+        consume(TOKEN_SEMICOLON, "Expect ';' after return value");
+        emitByte(OP_RETURN);
+    }
+}
+
 static void whileStatement() {
     int loopStart = currentChunk()->count;
     beginLoop(loopStart);
@@ -618,6 +632,8 @@ static void statement() {
         breakStatement();
     } else if(match(TOKEN_CONTINUE)) {
         continueStatement();
+    } else if (match(TOKEN_RETURN)) {
+        returnStatement();
     } else {
         expressionStatement();
     }
