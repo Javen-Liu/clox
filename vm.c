@@ -273,7 +273,7 @@ static InterpretResult run() {
         push(valueType(a op b));       \
        } while(false)       \
 
-    printf("\n== running ==\nv       v     v\n");
+//    printf("\n== running ==\nv       v     v\n");
     for(;;){
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          [ stack ] ");
