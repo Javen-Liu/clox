@@ -80,6 +80,12 @@ void initVM(){
     initTable(&vm.globals);
     initTable(&vm.strings);
 
+    vm.grayCount = 0;
+    vm.grayCapacity = 0;
+    vm.grayStack = NULL;
+    vm.bytesAllocated = 0;
+    vm.nextGC = 1024 * 1024;
+
     defineNative("clock", clockNative);
     defineNative("input", inputNative);
 }
@@ -179,8 +185,8 @@ static bool isFalsey(Value value) {
 }
 
 static void concatenate() {
-    ObjString *b = AS_STRING(pop());
-    ObjString *a = AS_STRING(pop());
+    ObjString *b = AS_STRING(peek(0));
+    ObjString *a = AS_STRING(peek(1));
 
     int newLength = a->length + b->length;
     char *chars = ALLOCATE(char, newLength + 1);
@@ -189,6 +195,8 @@ static void concatenate() {
     chars[newLength] = '\0';
 
     ObjString *result = takeString(chars, newLength);
+    pop();
+    pop();
     push(OBJ_VALUE(result));
 }
 
@@ -196,8 +204,8 @@ static int lengthOfTheDigits(double number);
 static void copyNumber(char* string, int length, double number);
 
 static void concatenateWithNumber() {
-    Value b = pop();
-    Value a = pop();
+    Value b = peek(0);
+    Value a = peek(1);
     if (IS_STRING(a)) {
         ObjString *string = AS_STRING(a);
         double number = AS_NUMBER(b);
@@ -223,6 +231,8 @@ static void concatenateWithNumber() {
         ObjString *result = takeString(chars, newLength);
         push(OBJ_VALUE(result));
     }
+    pop();
+    pop();
 }
 
 /** next several functions are turning *double* into character array **/

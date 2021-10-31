@@ -61,7 +61,7 @@ typedef enum {
     TYPE_SCRIPT,
 } FunctionType;
 
-typedef struct {
+typedef struct Compiler {
     struct Compiler *enclosing;
     ObjFunction *function;
     FunctionType type;
@@ -79,5 +79,6 @@ typedef struct {
 } Compiler;
 
 ObjFunction *compile(const char *source);
+void markCompilerRoots();
 
 #endif //CLOX_COMPILER_H

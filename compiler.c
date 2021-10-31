@@ -7,6 +7,7 @@
 
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
 #include "scanner.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -246,8 +247,8 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
         return -1;
     }
 
-    int local = resolveLocal((Compiler *) compiler->enclosing, name);
-    if (local == -1) {
+    int local = resolveLocal(compiler->enclosing, name);
+    if (local != -1) {
         compiler->enclosing->locals[local].isCaptured = true;
         return addUpvalue(compiler, (uint8_t) local, true);
     }
@@ -760,8 +761,8 @@ static void namedVariable(Token name, bool canAssign) {
         getOp = OP_GET_LOCAL;
         setOp = OP_SET_LOCAL;
     } else if ((arg = resolveUpvalue(current, &name)) != -1) {
-        getOP = OP_GET_UPVALUE;
-        setOP = OP_SET_UPVALUE;
+        getOp = OP_GET_UPVALUE;
+        setOp = OP_SET_UPVALUE;
     } else {
         arg = identifierConstant(&name);
         getOp = OP_GET_GLOBAL;
@@ -879,4 +880,12 @@ ObjFunction *compile(const char *source){
 
     ObjFunction *function = endCompiler();
     return parser.hadError ? NULL : function;
+}
+
+void markCompilerRoots() {
+    Compiler *compiler = current;
+    while (compiler != NULL) {
+        markObject((Obj *) compiler->function);
+        compiler = compiler->enclosing;
+    }
 }
