@@ -254,7 +254,7 @@ static int resolveUpvalue(Compiler *compiler, Token *name) {
     }
 
     int upvalue = resolveUpvalue((Compiler *) compiler->enclosing, name);
-    if (upvalue == -1) {
+    if (upvalue != -1) {
         return addUpvalue(compiler, (uint8_t) upvalue, false);
     }
 

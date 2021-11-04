@@ -217,6 +217,8 @@ static void concatenateWithNumber() {
         copyNumber(chars + string->length, numberLength, number);
         chars[newLength] = '\0';
         ObjString *result = takeString(chars, newLength);
+        pop();
+        pop();
         push(OBJ_VALUE(result));
     } else {
         double number = AS_NUMBER(a);
@@ -229,10 +231,10 @@ static void concatenateWithNumber() {
         memcpy(chars + numberLength, string->chars, string->length);
         chars[newLength] = '\0';
         ObjString *result = takeString(chars, newLength);
+        pop();
+        pop();
         push(OBJ_VALUE(result));
     }
-    pop();
-    pop();
 }
 
 /** next several functions are turning *double* into character array **/
