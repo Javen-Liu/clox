@@ -42,7 +42,13 @@ typedef struct {
 typedef struct {
     Token name;
     int depth;
+    bool isCaptured;
 } Local;
+
+typedef struct {
+    uint8_t index;
+    bool isLocal;
+} Upvalue;
 
 typedef struct {
     int loopStart;
@@ -55,7 +61,7 @@ typedef enum {
     TYPE_SCRIPT,
 } FunctionType;
 
-typedef struct {
+typedef struct Compiler {
     struct Compiler *enclosing;
     ObjFunction *function;
     FunctionType type;
@@ -67,9 +73,12 @@ typedef struct {
 
     Local locals[UINT8_COUNT];
     int localCount;
+
+    Upvalue upvalues[UINT8_COUNT];
     int scopeDepth;
 } Compiler;
 
 ObjFunction *compile(const char *source);
+void markCompilerRoots();
 
 #endif //CLOX_COMPILER_H

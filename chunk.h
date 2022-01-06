@@ -7,6 +7,7 @@
 #include "value.h"
 
 typedef enum {
+    OP_CLASS,
 	OP_RETURN,
 	OP_CONSTANT,
 	OP_NIL,
@@ -14,10 +15,12 @@ typedef enum {
 	OP_FALSE,
 	OP_POP,
 	OP_GET_LOCAL,
-	OP_GET_GLOBAL,
-	OP_DEFINE_GLOBAL,
 	OP_SET_LOCAL,
+	OP_GET_GLOBAL,
 	OP_SET_GLOBAL,
+	OP_GET_UPVALUE,
+	OP_SET_UPVALUE,
+	OP_DEFINE_GLOBAL,
 	OP_EQUAL,
 	OP_GREATER,
 	OP_LESS,
@@ -33,6 +36,8 @@ typedef enum {
     OP_LOOP,
     OP_DUP,
     OP_CALL,
+    OP_CLOSURE,
+    OP_CLOSE_UPVALUE,
 } OpCode;
 
 typedef struct {
